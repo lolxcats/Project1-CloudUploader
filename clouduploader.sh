@@ -13,7 +13,7 @@ Help() {
    echo "options:"
    echo "h     Print this Help."
    echo "s     Initial Setup Up command - Checks current configuration, and allows to change configuration"
-   echo "v     "
+   echo "u     Upload to S3 Bucket, needs file name and path to upload"
    echo "V     "
    echo
 }
@@ -25,21 +25,25 @@ Help() {
 ############################################################
 
 # Get the options
-while getopts ":h" option; do
+while getopts ":hs:" option; do
    case $option in
       h) # display Help
          Help
          exit;;
+      s) # Initial Configuration
+        echo "running command"
+         setup
+         exit;;
+     \?) # Invalid option
+         echo "Error: Invalid option"
+         exit;;
    esac
 done
 
-
-
-
-#Step 1: Setup and Authenticate
-
-
-
+if [[ $# -eq 0 ]] ; then
+    Help
+    exit 1
+fi
 
 
 #Setup function
@@ -89,8 +93,6 @@ checkforauthen() {
     fi
 } 
 
-
-setup
 
 
 if [ $? -ne 0 ]; then
