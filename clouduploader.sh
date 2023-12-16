@@ -5,46 +5,18 @@
 ############################################################
 # Help                                                     #
 ############################################################
-Help() {
-   # Display Help
-   echo "CloudUploader CLI Version 1.0"
-   echo
-   echo "Syntax: clouduploader [-h|s||V]"
-   echo "options:"
-   echo "h     Print this Help."
-   echo "s     Initial Setup Up command - Checks current configuration, and allows to change configuration"
-   echo "u     Upload to S3 Bucket, needs file name and path to upload"
-   echo "V     "
-   echo
+show_help() {
+cat << 'EOF'
+    "CloudUploader CLI Version 1.0"
+
+    "Syntax: clouduploader [-h|-s|-u|]"
+    "options:"
+    "h     Print this Help."
+    "s     Initial Setup Up command - Checks current configuration, and allows to change configuration"
+    "u     Upload to S3 Bucket, needs file name and path to upload"
+    "V     "
+EOF
 }
-
-############################################################
-############################################################
-# Main program                                             #
-############################################################
-############################################################
-
-# Get the options
-while getopts ":hs:" option; do
-   case $option in
-      h) # display Help
-         Help
-         exit;;
-      s) # Initial Configuration
-        echo "running command"
-         setup
-         exit;;
-     \?) # Invalid option
-         echo "Error: Invalid option"
-         exit;;
-   esac
-done
-
-if [[ $# -eq 0 ]] ; then
-    Help
-    exit 1
-fi
-
 
 #Setup function
 setup() {
@@ -95,6 +67,43 @@ checkforauthen() {
 
 
 
-if [ $? -ne 0 ]; then
-    echo "Error occurred."
+
+############################################################
+############################################################
+# Main program                                             #
+############################################################
+############################################################
+
+# No Input Check
+if [[ $# -eq 0 ]] ; then
+    echo "No argument flags provided, try -h to view the help"
+    exit 1
+fi
+
+# Parameter Check
+while getopts ":hs:u:" option; do
+   case $option in
+      h) # display Help
+         show_help
+         exit;;
+      s) # Initial Configuration
+        echo "running command"
+         setup
+         exit;;
+      u) # Upload File - requires path argument
+        echo "Uploading file to ${OPTARG}..."
+        #UploadFile(filepath)
+        exit;;
+      \?) # Invalid option
+         echo "Invalid Option"
+         exit;;
+      : ) #argument missing
+        echo "Invalid option -$OPTARG requires argument" 1>&2
+        exit;;
+   esac
+done
+
+#unknown parameter check
+if [ $# -ne 0 ]; then
+    echo "Error: Invalid parameter"
 fi
