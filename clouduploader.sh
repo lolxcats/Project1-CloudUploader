@@ -66,6 +66,12 @@ checkforauthen() {
 } 
 
 
+#File Upload
+uploadfile(pathname) {
+    
+}
+
+
 
 
 ############################################################
