@@ -67,8 +67,8 @@ checkforauthen() {
 
 
 #File Upload
-uploadfile(pathname) {
-    
+function uploadfile() {
+    aws s3 ls s3://mybucket
 }
 
 
