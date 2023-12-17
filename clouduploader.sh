@@ -2,19 +2,27 @@
 
 #Cloud uploader to S3 bucket in AWS
 
+# Define ANSI color codes
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+NC='\033[0m' # No Color
+
 ############################################################
 # Help                                                     #
 ############################################################
 show_help() {
 cat << 'EOF'
-    "CloudUploader CLI Version 1.0"
+    CloudUploader CLI Version 1.0
 
-    "Syntax: clouduploader [-h|-s|-u|]"
-    "options:"
-    "h     Print this Help."
-    "s     Initial Setup Up command - Checks current configuration, and allows to change configuration"
-    "u     Upload to S3 Bucket, needs file name and path to upload"
-    "V     "
+    Syntax: clouduploader [-h|-s|-u|-c|-f]
+    options:
+    h     Print this Help.
+    s     Initial Setup Up command - Checks current configuration, and allows to change configuration
+    c     Print out current user configuration
+    u     Upload to S3 Bucket, needs file name and path to upload
+       (clouduploader.sh -u {filepath} {bucket name})
+       (ex. clouduploader.sh -u {.\testfile} {s3://bucket-name})
+    f     Check to see if file already exists
 EOF
 }
 
@@ -65,13 +73,47 @@ checkforauthen() {
     fi
 } 
 
+#Current user information
+function get_currentuser() {
+    currentuser=$(aws sts get-caller-identity 2>&1 | cut -d "{" -f1 | cut -d "}" -f2)
+    echo "Current User Information:  $currentuser"
+}
 
 #File Upload
 function uploadfile() {
-    aws s3 ls s3://mybucket
+    check_already_exists
+    if [[ $bucketname == "" ]]; then
+            echo -e "${RED}No bucket name specified, Uploading file to default bucket...\nFor more information see clouduploader -h${NC}"
+            pickdefaultbucket
+            echo "Uploading file to $bucketname..."
+            aws s3 cp $filepath $bucketname
+        else
+            aws s3 cp $filepath $bucketname
+            echo "Uploading $filename to $bucketname..."
+        fi
+    }
+    
+function pickdefaultbucket() {
+    bucketname=$(aws s3api list-buckets --query "Buckets[0].Name" --output text | tr -d '"')
+    if [[ $bucketname == "" ]]; then
+        echo "No current available buckets, please create bucket first"
+    else
+        bucketname="s3://$bucketname"
+    fi
 }
-
-
+#Checking for File already existing
+function check_already_exists() {
+    found=$(aws s3 ls s3://$bucketname/$filename)
+    if [[ $found != "" ]]; then
+        read -p "There is already a file named that, Do you wish to rewrite it?(y/n)" tempANS
+        if [[ $tempANS == "y" ]]; then
+            echo "Proceeding to rewrite..."
+        elif [[ $tempANS == "n" ]]; then
+            echo "Aborting..."
+            exit 1
+        fi
+    fi
+}
 
 
 ############################################################
@@ -87,7 +129,7 @@ if [[ $# -eq 0 ]] ; then
 fi
 
 # Parameter Check
-while getopts ":hs:u:" option; do
+while getopts ":hcsf:u:" option; do
    case $option in
       h) # display Help
          show_help
@@ -96,15 +138,26 @@ while getopts ":hs:u:" option; do
         echo "running command"
          setup
          exit;;
+      c) #print current user information
+        get_currentuser
+        exit;;
       u) # Upload File - requires path argument
-        echo "Uploading file to ${OPTARG}..."
-        #UploadFile(filepath)
+        filepath="$2"
+        filename=$(basename $filepath)
+        bucketname="$3"
+        uploadfile
+        exit;;
+      f) #check to see if file exists
+        filepath="$2"
+        filename=$(basename $filepath)
+        bucketname="$3"
+        check_already_exists
         exit;;
       \?) # Invalid option
          echo "Invalid Option"
          exit;;
       : ) #argument missing
-        echo "Invalid option -$OPTARG requires argument" 1>&2
+        echo -e "\n${RED}Invalid option -$OPTARG requires argument\nView -h for help\n${NC}" 1>&2
         exit;;
    esac
 done
