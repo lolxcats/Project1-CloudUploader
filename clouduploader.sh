@@ -12,6 +12,8 @@ NC='\033[0m' # No Color
 ############################################################
 show_help() {
 cat << 'EOF'
+--------------------------------------------------------------------------
+
     CloudUploader CLI Version 1.0
 
     Syntax: clouduploader [-h|-s|-u|-c|-f]
@@ -23,6 +25,9 @@ cat << 'EOF'
        (clouduploader.sh -u {filepath} {bucket name})
        (ex. clouduploader.sh -u {.\testfile} {s3://bucket-name})
     f     Check to see if file already exists
+
+--------------------------------------------------------------------------
+
 EOF
 }
 
@@ -81,37 +86,48 @@ function get_currentuser() {
 
 #File Upload
 function uploadfile() {
-    check_already_exists
     if [[ $bucketname == "" ]]; then
-            echo -e "${RED}No bucket name specified, Uploading file to default bucket...\nFor more information see clouduploader -h${NC}"
-            pickdefaultbucket
-            echo "Uploading file to $bucketname..."
-            aws s3 cp $filepath $bucketname
-        else
-            aws s3 cp $filepath $bucketname
-            echo "Uploading $filename to $bucketname..."
-        fi
-    }
-    
+        echo -e "${RED}No bucket name specified, Proceeding with default bucket...\n${NC}"
+        pickdefaultbucket
+        echo -e "${RED}Using bucket: $bucketname...${NC}"
+    fi
+
+    if [[ check_file_already_exists ]]; then
+        while true; do
+            read -rep $"File {$filename} already exists in {$bucketname}.Do you want to overwrite it? [y/n]: " yn
+            case $yn in
+            [Yy]* ) 
+                echo -e "\nOverwriting..."
+                aws s3 cp $filepath $bucketname
+                break;;
+            [Nn]* ) 
+                echo "Exiting..."
+                break;;
+            * ) 
+                echo "Please enter y or n";;
+            esac
+        done
+    else
+        aws s3 cp $filepath $bucketname
+    fi
+}
+
 function pickdefaultbucket() {
     bucketname=$(aws s3api list-buckets --query "Buckets[0].Name" --output text | tr -d '"')
     if [[ $bucketname == "" ]]; then
-        echo "No current available buckets, please create bucket first"
+        echo -e "\nNo current available buckets, please create bucket first"
+        break
     else
         bucketname="s3://$bucketname"
     fi
 }
 #Checking for File already existing
-function check_already_exists() {
+function check_file_already_exists() {
     found=$(aws s3 ls s3://$bucketname/$filename)
     if [[ $found != "" ]]; then
-        read -p "There is already a file named that, Do you wish to rewrite it?(y/n)" tempANS
-        if [[ $tempANS == "y" ]]; then
-            echo "Proceeding to rewrite..."
-        elif [[ $tempANS == "n" ]]; then
-            echo "Aborting..."
-            exit 1
-        fi
+        true
+    else
+        false
     fi
 }
 
@@ -151,7 +167,12 @@ while getopts ":hcsf:u:" option; do
         filepath="$2"
         filename=$(basename $filepath)
         bucketname="$3"
-        check_already_exists
+        if [[ check_file_already_exists ]]; then 
+            echo "File already exists"
+            echo "TEST $found"
+        else
+            echo "File does not exist"
+        fi
         exit;;
       \?) # Invalid option
          echo "Invalid Option"
